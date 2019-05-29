@@ -25,6 +25,15 @@ target_center = (0, 320)
 kernel=t.gen_kernel(target_center)
 cv2.imwrite(out_path,kernel)
 '''
+### Example image
+![source panoramic image](https://github.com/FutureShow/Gnomonic-Projection/blob/master/example_projection/drive_city_small.jpg)
+![fov (row:0 col:320)](https://github.com/FutureShow/Gnomonic-Projection/blob/master/example_projection/drive_city_fov_0_320.jpg)
+![fov (row:160 col:0)](https://github.com/FutureShow/Gnomonic-Projection/blob/master/example_projection/drive_city_fov_160_0.jpg)
+![fov (row:160 col:160)](https://github.com/FutureShow/Gnomonic-Projection/blob/master/example_projection/drive_city_fov_160_160.jpg)
+![fov (row:160 col:320)](https://github.com/FutureShow/Gnomonic-Projection/blob/master/example_projection/drive_city_fov_160_320.jpg)
+![fov (row:160 col:480)](https://github.com/FutureShow/Gnomonic-Projection/blob/master/example_projection/drive_city_fov_160_480.jpg)
+![fov (row:319 col:320)](https://github.com/FutureShow/Gnomonic-Projection/blob/master/example_projection/drive_city_fov_319_320.jpg)
+
 
 ## BackProjection_Kernel:
 Back-projection implementation GnomonicCoordinates for obtaining a rectangle to cover the back-projected fov in panoramic image. Here, it only considers the polar angle because we only want to know the result of back-projected fov which is not related to horizontal position.
