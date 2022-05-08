@@ -1,15 +1,24 @@
 # using python 3.5
 
 import numpy as np
-from numpy import sin, cos, tan, pi, arcsin, arctan, floor, ceil
-from scipy.sparse import csr_matrix
-from functions import get_bilinear_index
 import torch
 
 MAX_KERNEL_SIZE = 65
 assert MAX_KERNEL_SIZE % 2 == 1
 HALF_KERNEL_SIZE = int(MAX_KERNEL_SIZE/2)
 
+
+def get_bilinear_index(grid_x, grid_y):
+    ix0 = np.floor(grid_x).astype(int)
+    ix1 = ix0 + 1
+    iy0 = np.floor(grid_y).astype(int)
+    iy1 = iy0 + 1
+    c00 = (grid_x - ix0) * (grid_y - iy0)
+    c01 = (grid_x - ix0) * (iy1 - grid_y)
+    c10 = (ix1 - grid_x) * (grid_y - iy0)
+    c11 = (ix1 - grid_x) * (iy1 - grid_y)
+    return ix0, ix1, iy0, iy1, c00, c01, c10, c11
+        
 
 class GnomonicCoordinates(object):
     def __init__(self, img_h, img_w, kernel_size=3):
@@ -39,7 +48,7 @@ class GnomonicCoordinates(object):
             self.grid_y[self.fix_center] = 1
         
         self.rho = np.sqrt(self.grid_x**2 + self.grid_y**2)
-        self.unit_dist = tan(pi / self.img_h)
+        self.unit_dist = np.tan(np.pi / self.img_h)
     
     
     def specify_fov_resolution(self, fov_angle, fov_size):
@@ -48,10 +57,10 @@ class GnomonicCoordinates(object):
         '''
         # try to change resolution
         if isinstance(fov_angle, (int, float)) and isinstance(fov_size, int):
-            self.unit_dist = tan(np.deg2rad(fov_angle) / fov_size)
+            self.unit_dist = np.tan(np.deg2rad(fov_angle) / fov_size)
         else:
-            print('Reset fov resolution as tan(pi / img_h)! Your fov_angle and fov_size are wrong!')
-            self.unit_dist = tan(pi / self.img_h)
+            print('Reset fov resolution as tan(np.pi / img_h)! Your fov_angle and fov_size are wrong!')
+            self.unit_dist = np.tan(np.pi / self.img_h)
             
     
     def generate_grid(self, center_loc):
@@ -63,10 +72,10 @@ class GnomonicCoordinates(object):
         assert (self.img_h > center_loc[0] >= 0) and (self.img_w > center_loc[1] >= 0)
         
         grid_x, grid_y, rho = self.grid_x * self.unit_dist, self.grid_y * self.unit_dist, self.rho * self.unit_dist
-        v = arctan(rho)
+        v = np.arctan(rho)
         
         phi, theta = self.coor2rad(center_loc)
-        new_phi = arcsin(cos(v) * sin(phi) + grid_y * sin(v) * cos(phi) / rho)
+        new_phi = np.arcsin(np.cos(v) * np.sin(phi) + grid_y * np.sin(v) * np.cos(phi) / rho)
 
         INDn = np.array([False]*self.kernel_size[0])
         max_idx, min_idx = np.argmax(new_phi[::-1,int(self.kernel_size[0]/2-1)]), np.argmin(new_phi[:,int(self.kernel_size[0]/2-1)])
@@ -78,8 +87,8 @@ class GnomonicCoordinates(object):
             else:
                 INDn[min_idx+1:] = True
         
-        new_theta = theta + arctan(grid_x * sin(v) / (rho * cos(phi) * cos(v) - grid_y * sin(phi) * sin(v)))
-        new_theta[INDn, :] += pi
+        new_theta = theta + np.arctan(grid_x * np.sin(v) / (rho * np.cos(phi) * np.cos(v) - grid_y * np.sin(phi) * np.sin(v)))
+        new_theta[INDn, :] += np.pi
         y, x = self.rad2coor((new_phi, new_theta))
 
         if self.fix_center:
@@ -91,15 +100,15 @@ class GnomonicCoordinates(object):
     def coor2rad(self, coor_loc):
         assert len(coor_loc) == 2
         y, x = coor_loc
-        phi = pi / 2 - y / self.img_h * pi
-        theta = x / self.img_w * 2 * pi - pi
+        phi = np.pi / 2 - y / self.img_h * np.pi
+        theta = x / self.img_w * 2 * np.pi - np.pi
         return phi, theta
 
     def rad2coor(self, rad_loc):
         assert len(rad_loc) == 2
         phi, theta = rad_loc
-        y = (-phi + pi / 2) * self.img_h / pi
-        x = (theta + pi) * self.img_w / 2 / pi
+        y = (-phi + np.pi / 2) * self.img_h / np.pi
+        x = (theta + np.pi) * self.img_w / 2 / np.pi
         x = (x + self.img_w) % self.img_w
         return y, x
         
@@ -158,9 +167,9 @@ class BackProjection_Kernel(GnomonicCoordinates):
         grid_phi, grid_theta = self.coor2rad((target_grid_y, target_grid_x))
         center_phi, center_theta = self.coor2rad(center_loc)
         diff_theta = grid_theta - center_theta
-        down = sin(center_phi)*sin(grid_phi)+cos(center_phi)*cos(grid_phi)*cos(diff_theta)
-        target_grid_x = (cos(grid_phi)*sin(diff_theta)) / down
-        target_grid_y = (cos(center_phi)*sin(grid_phi)-sin(center_phi)*cos(grid_phi)*cos(diff_theta)) / down
+        down = np.sin(center_phi)*np.sin(grid_phi)+np.cos(center_phi)*np.cos(grid_phi)*np.cos(diff_theta)
+        target_grid_x = (np.cos(grid_phi)*np.sin(diff_theta)) / down
+        target_grid_y = (np.cos(center_phi)*np.sin(grid_phi)-np.sin(center_phi)*np.cos(grid_phi)*np.cos(diff_theta)) / down
         
         target_grid_x = target_grid_x / self.unit_dist + self.kernel_size[1] / 2 - 0.5
         target_grid_y = target_grid_y / self.unit_dist + self.kernel_size[0] / 2 - 0.5
@@ -201,8 +210,8 @@ class BackProjection_Kernel(GnomonicCoordinates):
                np.zeros((self.out_ch, self.in_ch, y_max-y_min, x_max-x_min))
     
     def _cut_range(self, min_, max_, center):
-        min_ = floor(min_)
-        max_ = ceil(max_) + 1
+        min_ = np.floor(min_)
+        max_ = np.ceil(max_) + 1
         if (max_ - min_) % 2 == 0: # keep odd
             max_ += 1
         if (max_ - min_) > MAX_KERNEL_SIZE: # less than 65
@@ -211,9 +220,9 @@ class BackProjection_Kernel(GnomonicCoordinates):
         return np.int16(min_), np.int16(max_)
 
 if __name__ == '__main__':
-    tc = SphereProjection()
-    # print(tc.generate_grid((319, 480), (320, 640)))
     import cv2
-    img = cv2.imread('frame_1.png')
-    img = img.resize((320, 640))
-    # kernel = tc.gen_projection(())
+    img = cv2.imread('example_projection/drive_city_small.jpg')
+    t=SphereProjection(img, kernel_size = 373)
+    target_center = (0, 320)
+    kernel=t.gen_kernel(target_center)
+    cv2.imwrite('test.jpg',kernel)
